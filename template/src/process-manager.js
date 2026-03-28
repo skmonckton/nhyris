@@ -42,6 +42,8 @@ class ProcessManager {
             R_LIBS: appState.paths.libPath,
             R_LIBS_USER: appState.paths.libPath,
             R_LIBS_SITE: appState.paths.libPath,
+            USER_DATA_PATH: appState.paths.userDataPath,
+            APP_VER: app.getVersion()
           },
           stdio: "ignore",
         }

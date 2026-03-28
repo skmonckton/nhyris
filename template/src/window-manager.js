@@ -1,4 +1,5 @@
 const { BrowserWindow } = require("electron");
+const { shell } = require('electron');
 const ErrorHandler = require("./error-handler");
 const path = require("path");
 
@@ -17,6 +18,18 @@ function createWindow(appState, shinyUrl) {
     });
 
     mainWindow.loadURL(shinyUrl);
+
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    });
+
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      if (url !== mainWindow.webContents.getURL()) {
+        event.preventDefault();
+        shell.openExternal(url);
+        }
+    });
 
     mainWindow.on("closed", () => {
       appState.setMainWindow(null);
@@ -57,8 +70,9 @@ function createSplashScreen(appState, filename) {
 // Show loading splash screen
 function createLoadingSplashScreen(appState) {
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: appState.config.mainWindow.width,
+    height: appState.config.mainWindow.height,
+    backgroundColor: appState.config.backgroundColor,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

@@ -11,7 +11,6 @@ export async function handleDmgMaker(
 ) {
   const backgroundSource = path.join(
     root,
-    "template",
     "assets",
     "background-DMG.png"
   );
@@ -70,12 +69,13 @@ export async function handleSquirrelMaker(projectPath) {
     installDependencies(projectPath);
   }
 
+  const [, owner, repo] = new URL(require('../package.json').repository.url).pathname.split('/');
+
   const squirrelMakerConfig = {
     name: "@electron-forge/maker-squirrel",
     config: {
-      setupIcon: "assets/setupIcon.ico",
-      iconUrl:
-        "https://github.com/jahnen/nhyris/raw/main/template/assets/icon.ico",
+      setupIcon: "assets/icon.ico",
+      iconUrl: `https://github.com/${owner}/${repo}/raw/main/assets/icon.ico`
     },
   };
 

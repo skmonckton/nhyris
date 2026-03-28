@@ -1,4 +1,5 @@
 const path = require("path");
+const net = require("net");
 const { app } = require("electron");
 const ProcessManager = require("./process-manager");
 
@@ -15,7 +16,7 @@ class AppState {
 
     this.config = {
       rPath: rPath,
-      backgroundColor: "#2c3e50",
+      backgroundColor: "#cccccc",
       serverPort: 1124,
       maxRetryAttempts: 100,
       serverCheckTimeout: 3000,
@@ -36,7 +37,25 @@ class AppState {
         return path.join(this.rpath, "bin", "R");
       },
       shinyAppPath: path.join(app.getAppPath(), "shiny"),
+      userDataPath: path.join(app.getPath('userData')),
     };
+  }
+
+  async init() {
+    this.config.serverPort = await this._findFreePort(this.config.serverPort);
+  }
+
+  _findFreePort(startPort) {
+    return new Promise((resolve, reject) => {
+      const server = net.createServer();
+      server.listen(startPort, '127.0.0.1', () => {
+        const port = server.address().port;
+        server.close(() => resolve(port));
+      });
+      server.on('error', () => {
+        resolve(this._findFreePort(startPort + 1));
+      });
+    });
   }
 
   setShinyProcess(process) {

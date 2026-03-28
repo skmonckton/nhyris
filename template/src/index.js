@@ -1,15 +1,46 @@
 // Copyright (c) 2018 Dirk Schumacher, Noam Ross, Rich FitzJohn
 // Copyright (c) 2025 Jinhwan Kim
-const { app, session } = require("electron");
+const { app, session, autoUpdater } = require("electron");
+const { spawn } = require('child_process');
+const path = require('path');
 const os = require("os");
 const ErrorHandler = require("./error-handler");
 const ProcessManager = require("./process-manager"); // <-- import ProcessManager
 const ServerUtils = require("./server-utils"); // 추가
 const AppState = require("./app-state");
 const WindowManager = require("./window-manager");
+const [, gitOwner, gitRepo] = new URL(require('../package.json').repository.url).pathname.split('/');
 
 // Initialize global state
-const appState = new AppState();
+let appState;
+
+// Auto-updater setup (Windows only, skip in development)
+if (os.platform() === "win32" && app.isPackaged) {
+  const feedURL = `https://update.electronjs.org/${gitOwner}/${gitRepo}/win32/${app.getVersion()}`;
+  autoUpdater.setFeedURL({ url: feedURL });
+
+  autoUpdater.on("update-available", () => {
+    console.log("Update available. Downloading...");
+  });
+
+  autoUpdater.on("update-downloaded", (event, releaseNotes, releaseName) => {
+    const { dialog } = require("electron");
+    dialog.showMessageBox({
+      type: "info",
+      title: "Update Ready",
+      message: `Version ${releaseName} is ready to install. ${app.getName()} will restart to apply the update.`,
+      buttons: ["Restart Now", "Later"],
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.on("error", (err) => {
+    ErrorHandler.logError("autoUpdater", err);
+  });
+}
 
 // 1. Start R process
 async function startShinyProcessWithState(appState) {
@@ -109,6 +140,24 @@ async function tryStartWebserver(
 
 // Squirrel startup handling with better error handling
 // Handle Squirrel startup only on Windows
+// const handleSquirrelStartup = () => {
+//   if (os.platform() !== "win32") {
+//     return false;
+//   }
+//   return ErrorHandler.handleSyncError(
+//     "handleSquirrelStartup",
+//     () => {
+//       if (require("electron-squirrel-startup")) {
+//         app.quit();
+//         ProcessManager.terminateRProcesses();
+//         return true;
+//       }
+//       return false;
+//     },
+//     false
+//   );
+// };
+
 const handleSquirrelStartup = () => {
   if (os.platform() !== "win32") {
     return false;
@@ -116,16 +165,32 @@ const handleSquirrelStartup = () => {
   return ErrorHandler.handleSyncError(
     "handleSquirrelStartup",
     () => {
-      if (require("electron-squirrel-startup")) {
-        app.quit();
-        ProcessManager.terminateRProcesses();
-        return true;
+      const squirrelCommand = process.argv[1];
+      const appFolder = path.resolve(process.execPath, '..');
+      const rootFolder = path.resolve(appFolder, '..');
+      const updateExe = path.resolve(rootFolder, 'Update.exe');
+
+      switch (squirrelCommand) {
+        case '--squirrel-install':
+        case '--squirrel-updated':
+          spawn(updateExe, ['--createShortcut', path.basename(process.execPath)], { detached: true });
+          app.quit();
+          return true;
+        case '--squirrel-uninstall':
+          spawn(updateExe, ['--removeShortcut', path.basename(process.execPath)], { detached: true });
+          app.quit();
+          return true;
+        case '--squirrel-obsolete':
+          app.quit();
+          return true;
       }
       return false;
     },
     false
   );
 };
+
+
 
 // Handle Squirrel events only on Windows
 if (handleSquirrelStartup()) {
@@ -135,6 +200,13 @@ if (handleSquirrelStartup()) {
 
 // Application bootstrap
 app.on("ready", async () => {
+  
+  appState = new AppState();
+  await appState.init(); // find a free port (in case of other running Shiny apps)
+
+  // Clear electron cache (avoids loading app with cached styles from a previous version)
+  await session.defaultSession.clearCache();
+
   // Set a content security policy
   session.defaultSession.webRequest.onHeadersReceived((_, callback) => {
     callback({
@@ -194,6 +266,11 @@ app.on("ready", async () => {
     await ServerUtils.waitFor(appState.config.serverStartTimeout); // TODO: hack, only emit if the loading screen is ready
     await emitSpashEvent("failed");
   };
+
+  // Check for updates while the splash screen is showing
+  if (os.platform() === "win32" && app.isPackaged) {
+    autoUpdater.checkForUpdates();
+  }
 
   try {
     await tryStartWebserver(

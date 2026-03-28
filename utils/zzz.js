@@ -80,7 +80,12 @@ const INDENT_STEP = 2;
 
 function serializeObject(obj, indent = INDENT_STEP) {
   const isValidIdentifier = (key) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key);
-  if (Array.isArray(obj)) {
+  
+  if (obj instanceof RegExp) {
+    return obj.toString(); // preserves /pattern/flags as-is
+  } else if (typeof obj === "function") {
+    return obj.toString(); // preserves the full function source
+  } else if (Array.isArray(obj)) {
     return (
       "[\n" +
       obj

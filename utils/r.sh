@@ -52,7 +52,7 @@ if [ "$OS_TYPE" = "macos" ]; then
 elif [ "$OS_TYPE" = "windows" ]; then
     # Windows installation
     R_WIN_VERSION="${R_VERSION//./}" # Remove dots from version number
-    R_WIN_URL="https://cloud.r-project.org/bin/windows/base/R-${R_VERSION}-win.exe"
+    R_WIN_URL="https://cloud.r-project.org/bin/windows/base/old/${R_VERSION}/R-${R_VERSION}-win.exe"
 
     echo "Installing R version: $R_VERSION for Windows"
 

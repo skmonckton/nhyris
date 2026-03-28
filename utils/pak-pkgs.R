@@ -80,7 +80,7 @@ get_dependent_packages <- function(directory = getwd()) {
         path = directory,
         pattern = "\\.R$",
         full.names = TRUE,
-        recursive = TRUE
+        recursive = FALSE
     )
     pkg_names <- unique(unlist(lapply(files, parse_packages)))
     if (length(pkg_names) == 0) {
@@ -93,8 +93,7 @@ get_dependent_packages <- function(directory = getwd()) {
 cran_pkgs <- unique(c("shiny", get_dependent_packages(directory = "shiny")))
 
 github_pkgs <- c(
-    # "r-lib/cli",
-    # "tidyverse/ggplot2"
+
 )
 
 bioconductor_pkgs <- c(

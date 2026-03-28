@@ -26,5 +26,5 @@ shiny::runApp(
   appDir = shiny_dir,
   host = "127.0.0.1",
   launch.browser = FALSE,
-  port = 1124
+  port = as.integer(Sys.getenv("RE_SHINY_PORT", unset = "1124"))
 )
