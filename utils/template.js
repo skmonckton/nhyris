@@ -77,13 +77,13 @@ export function copyTemplates(templatePath, projectPath, name) {
   }
 
   // Copy other template files
-  const filesToCopy = ["package.json", "forge.config.js"];
+  const filesToCopy = ["package.json", "forge.config.js", "assets"];
   filesToCopy.forEach((file) => {
     const from = path.join(templatePath, file);
     const to = path.join(projectPath, file);
     if (fs.existsSync(from)) {
       try {
-        fs.copyFileSync(from, to);
+        fs.copyFileSync(from, to, { recursive: true });
       } catch (err) {
         console.error(`Error copying '${file}':`, err.message);
         throw err;
