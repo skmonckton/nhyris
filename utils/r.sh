@@ -60,14 +60,18 @@ elif [ "$OS_TYPE" = "windows" ]; then
     rm -r doc tests Tcl
 
 elif [ "$OS_TYPE" = "linux" ]; then
-    # Linux (Ubuntu) installation
     echo "Installing R version: $R_VERSION for Linux (prebuilt)"
     R_URL="https://cdn.posit.co/r/ubuntu-2404/R-${R_VERSION}-ubuntu-2404.tar.gz"
     curl -L -o r-prebuilt.tar.gz "$R_URL"
+    echo "--- Tarball top-level contents ---"
+    tar -tzf r-prebuilt.tar.gz | head -30
     mkdir -p r-extracted
     tar -xzf r-prebuilt.tar.gz -C r-extracted
-    # Find whatever top-level directory was extracted and copy its contents
+    echo "--- Extracted contents ---"
+    ls r-extracted/
     extracted_dir=$(ls r-extracted/)
+    echo "--- Contents of extracted dir ---"
+    ls r-extracted/${extracted_dir}/
     cp -r r-extracted/${extracted_dir}/* .
     rm -rf r-extracted r-prebuilt.tar.gz
 fi
