@@ -17,7 +17,7 @@ suppressMessages(suppressWarnings(
   install.packages(c("pak", "formatR"), lib = library_path, quiet = TRUE)
 ))
 
-library(pak)
+library(pak, lib.loc = library_path)
 
 # Check if 'shiny' directory exists and contains R files
 if (!dir.exists("shiny")) {
