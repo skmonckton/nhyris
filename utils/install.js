@@ -31,7 +31,7 @@ export function installStandaloneR(projectPath) {
 
 function runRscriptCommand(rscriptCmd, platformLabel = "") {
   try {
-    execSync(rscriptCmd, { stdio: "inherit" });
+    execSync(rscriptCmd, { stdio: "inherit", env: process.env });
   } catch (err) {
     console.error(
       `Failed to install R packages${
