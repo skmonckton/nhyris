@@ -31,11 +31,7 @@ export function installStandaloneR(projectPath) {
 
 function runRscriptCommand(rscriptCmd, platformLabel = "") {
   try {
-    execSync(rscriptCmd, { 
-      stdio: "inherit", 
-      shell: true,
-      env: { ...process.env }
-    });
+    execSync(rscriptCmd, { stdio: "inherit" });
   } catch (err) {
     console.error(
       `Failed to install R packages${
@@ -61,10 +57,8 @@ export function installRPackages() {
     platformLabel = "Windows";
   } else if (process.platform === "linux" || process.platform === "darwin") {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript");
-    const rHome = path.join(process.cwd(), rDir);
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = process.platform === "darwin" ? "macOS" : "Linux";
-    process.env.R_HOME = rHome;
   } else {
     throw new Error(`Unsupported platform: ${process.platform}`);
   }
