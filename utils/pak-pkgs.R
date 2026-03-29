@@ -8,12 +8,13 @@
 options(repos = "https://cloud.r-project.org")
 
 library_path <- file.path("r-nhyris", "library")
-
+dir.create(library_path, showWarnings = FALSE, recursive = TRUE)
 .libPaths(library_path)
+options(repos = "https://cloud.r-project.org")
 
 # assumes pak package is not installed with r-local
 suppressMessages(suppressWarnings(
-    install.packages(c("pak", "formatR"), quiet = TRUE)
+  install.packages(c("pak", "formatR"), lib = library_path, quiet = TRUE)
 ))
 
 library(pak)
