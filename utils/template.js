@@ -51,9 +51,23 @@ export function copyTemplates(templatePath, projectPath, name) {
     downloadedFromGithub = true;
   }
 
-  // Copy the src directory
-  fs.cpSync(path.join(templatePath, "src"), path.join(projectPath, "src"), {
-    recursive: true,
+  // Copy the src & assets directories
+  const dirsToCopy = ["src", "assets"];
+  dirsToCopy.forEach((dir) => {
+    const from = path.join(templatePath, dir);
+    const to = path.join(projectPath, dir);
+    if (fs.existsSync(from)) {
+      try {
+        fs.cpSync(from, to, { recursive: true });
+      } catch (err) {
+        console.error(`Error copying '${dir}':`, err.message);
+        throw err;
+      }
+    } else {
+      const msg = `Missing template directory: ${dir}`;
+      console.warn(msg);
+      throw new Error(msg);
+    }
   });
 
   // Copy app.R (do not copy if downloaded from GitHub)
@@ -77,7 +91,7 @@ export function copyTemplates(templatePath, projectPath, name) {
   }
 
   // Copy other template files
-  const filesToCopy = ["package.json", "forge.config.js", "assets"];
+  const filesToCopy = ["package.json", "forge.config.js"];
   filesToCopy.forEach((file) => {
     const from = path.join(templatePath, file);
     const to = path.join(projectPath, file);
