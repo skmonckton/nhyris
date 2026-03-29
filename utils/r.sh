@@ -59,15 +59,13 @@ elif [ "$OS_TYPE" = "windows" ]; then
     rm -r app R-installer.exe
     rm -r doc tests Tcl
 
-elif [ "$OS_TYPE" = "linux" ]; then
-    # Linux (Ubuntu) installation
-    echo "Installing R version: $R_VERSION for Linux (prebuilt)"
-    R_URL="https://cdn.posit.co/r/ubuntu-2404/R-${R_VERSION}-ubuntu-2404.tar.gz"
-    curl -L -o r-prebuilt.tar.gz "$R_URL"
-    mkdir -p r-extracted
-    tar -xzf r-prebuilt.tar.gz -C r-extracted
-    # Find whatever top-level directory was extracted and copy its contents
-    extracted_dir=$(ls r-extracted/)
-    cp -r r-extracted/${extracted_dir}/* .
-    rm -rf r-extracted r-prebuilt.tar.gz
-fi
+    elif [ "$OS_TYPE" = "linux" ]; then
+        # Linux (Ubuntu) installation
+        echo "Installing R version: $R_VERSION for Linux (prebuilt)"
+        R_URL="https://cdn.posit.co/r/ubuntu-2404/R-${R_VERSION}-ubuntu-2404.tar.gz"
+        curl -L -o r-prebuilt.tar.gz "$R_URL"
+        mkdir -p r-extracted
+        tar -xzf r-prebuilt.tar.gz -C r-extracted
+        cp -r r-extracted/${R_VERSION}/lib/R/* .
+        rm -rf r-extracted r-prebuilt.tar.gz
+    fi
