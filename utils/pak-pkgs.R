@@ -13,9 +13,9 @@ dir.create(library_path, showWarnings = FALSE, recursive = TRUE)
 options(repos = "https://cloud.r-project.org")
 
 # assumes pak package is not installed with r-local
-suppressMessages(suppressWarnings(
+#suppressMessages(suppressWarnings(
   install.packages(c("pak", "formatR"), lib = library_path, quiet = TRUE)
-))
+#))
 
 library(pak, lib.loc = library_path)
 
