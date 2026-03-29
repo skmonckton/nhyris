@@ -64,7 +64,7 @@ export function installRPackages() {
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = "Windows";
   } else if (process.platform === "linux") {
-    const rscriptPath = path.join(process.cwd(), rDir, "bin", "exec", "Rscript")
+    const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript");
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = "Linux";
   } else if (process.platform === "darwin") {

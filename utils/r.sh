@@ -71,5 +71,8 @@ elif [ "$OS_TYPE" = "windows" ]; then
         mkdir -p r-extracted
         tar -xzf r-prebuilt.tar.gz -C r-extracted
         cp -r r-extracted/${R_VERSION}/lib/R/* .
+        # Create directory structure the binary expects
+        sudo mkdir -p /opt/R/${R_VERSION}/lib
+        sudo ln -s "$(pwd)" /opt/R/${R_VERSION}/lib/R
         rm -rf r-extracted r-prebuilt.tar.gz
     fi
