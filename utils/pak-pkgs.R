@@ -4,13 +4,17 @@
 
 # Script to install R packages with pak
 
-# set cran mirror
-options(repos = "https://cloud.r-project.org")
-
 library_path <- file.path("r-nhyris", "library")
 dir.create(library_path, showWarnings = FALSE, recursive = TRUE)
 .libPaths(library_path)
-options(repos = "https://cloud.r-project.org")
+options(repos = if (.Platform$OS.type == "unix" && Sys.info()["sysname"] == "Linux") {
+    c(
+        "https://packagemanager.posit.co/cran/__linux__/noble/latest",
+        "https://cloud.r-project.org"
+    )
+} else {
+    "https://cloud.r-project.org"
+})
 
 # assumes pak package is not installed with r-local
 #suppressMessages(suppressWarnings(
