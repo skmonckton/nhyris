@@ -57,9 +57,10 @@ export function installRPackages() {
     platformLabel = "Windows";
   } else if (process.platform === "linux" || process.platform === "darwin") {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript");
+    const rHome = path.join(process.cwd(), rDir);
+    process.env.R_HOME = rHome;
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = process.platform === "darwin" ? "macOS" : "Linux";
-    process.env.R_HOME = rHome;
   } else {
     throw new Error(`Unsupported platform: ${process.platform}`);
   }
