@@ -83,7 +83,7 @@ export function copyTemplates(templatePath, projectPath, name) {
     const to = path.join(projectPath, file);
     if (fs.existsSync(from)) {
       try {
-        fs.copyFileSync(from, to, { recursive: true });
+        fs.copyFileSync(from, to);
       } catch (err) {
         console.error(`Error copying '${file}':`, err.message);
         throw err;
