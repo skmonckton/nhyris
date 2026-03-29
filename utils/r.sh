@@ -74,5 +74,7 @@ elif [ "$OS_TYPE" = "windows" ]; then
         # Create directory structure the binary expects
         sudo mkdir -p /opt/R/${R_VERSION}/lib
         sudo ln -s "$(pwd)" /opt/R/${R_VERSION}/lib/R
+        # Add R's own lib directory to the library path
+        export LD_LIBRARY_PATH="$(pwd)/lib:${LD_LIBRARY_PATH}"
         rm -rf r-extracted r-prebuilt.tar.gz
     fi

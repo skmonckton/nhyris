@@ -37,7 +37,8 @@ function runRscriptCommand(rscriptCmd, platformLabel = "") {
         ...process.env,
         R_HOME: path.join(process.cwd(), "r-nhyris"),
         R_HOME_DIR: path.join(process.cwd(), "r-nhyris"),
-        RHOME: path.join(process.cwd(), "r-nhyris")
+        RHOME: path.join(process.cwd(), "r-nhyris"),
+        LD_LIBRARY_PATH: `${path.join(process.cwd(), "r-nhyris", "lib")}:${process.env.LD_LIBRARY_PATH || ""}`
       }
     });
   } catch (err) {
