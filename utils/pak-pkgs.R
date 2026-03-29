@@ -1,6 +1,5 @@
-# Copyright (c) 2025 Jinhwan Kim
-
-# !/usr/bin/env Rscript
+# Original code: Copyright (c) 2025 Jinhwan Kim
+# Modified by Spencer K. Monckton
 
 # Script to install R packages with pak
 

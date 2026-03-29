@@ -1,6 +1,8 @@
 // Copyright (c) 2018 Dirk Schumacher, Noam Ross, Rich FitzJohn
 // Copyright (c) 2025 Jinhwan Kim
-const { app, session, autoUpdater } = require("electron");
+// Further modifications by Spencer K. Monckton
+
+const { app, session, autoUpdater, dialog, shell } = require("electron");
 const { spawn } = require('child_process');
 const path = require('path');
 const os = require("os");
@@ -40,6 +42,34 @@ if (os.platform() === "win32" && app.isPackaged) {
   autoUpdater.on("error", (err) => {
     ErrorHandler.logError("autoUpdater", err);
   });
+}
+
+// 0. Check for updates (when autoUpdater is unavailable)
+async function notifyIfUpdates() {
+  try {
+    const response = await fetch(
+      `https://update.electronjs.org/${gitOwner}/${gitRepo}/releases/latest`
+    );
+    const release = await response.json();
+    const latestVersion = release.tag_name.replace("v", "");
+    const currentVersion = app.getVersion();
+
+    if (latestVersion !== currentVersion) {
+      const { response: buttonIndex } = await dialog.showMessageBox({
+        type: "info",
+        title: "Update Available",
+        message: `A new version of ${app.getName()} is available: ${latestVersion}`,
+        detail: `You are running version ${currentVersion}. Would you like to download the update?`,
+        buttons: ["View Release", "Later"]
+      });
+
+      if (buttonIndex === 0) {
+        shell.openExternal(release.html_url);
+      }
+    }
+  } catch (err) {
+    console.error("Update check failed:", err.message);
+  }
 }
 
 // 1. Start R process
