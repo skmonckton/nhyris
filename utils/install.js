@@ -31,7 +31,14 @@ export function installStandaloneR(projectPath) {
 
 function runRscriptCommand(rscriptCmd, platformLabel = "") {
   try {
-    execSync(rscriptCmd, { stdio: "inherit" });
+    execSync(rscriptCmd, { 
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        R_HOME_DIR: path.join(process.cwd(), "r-nhyris"),
+        RHOME: path.join(process.cwd(), "r-nhyris")
+      }
+    });
   } catch (err) {
     console.error(
       `Failed to install R packages${
