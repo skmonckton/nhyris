@@ -71,10 +71,5 @@ elif [ "$OS_TYPE" = "windows" ]; then
         mkdir -p r-extracted
         tar -xzf r-prebuilt.tar.gz -C r-extracted
         cp -r r-extracted/${R_VERSION}/lib/R/* .
-        # Patch bin/R to set R_HOME_DIR relative to its own location
-        sed -i "2a R_HOME_DIR=\$(cd \"\$(dirname \"\$0\")/..\" && pwd)" bin/R
-        sed -i '/^R_HOME_DIR=\${R_HOME_DIR}\/lib\/R$/d' bin/R
-        sed -i 's;/opt/R/'"${R_VERSION}"';${R_HOME_DIR};g' bin/R
-        chmod +x bin/R
         rm -rf r-extracted r-prebuilt.tar.gz
     fi

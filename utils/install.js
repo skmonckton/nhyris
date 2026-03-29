@@ -35,6 +35,7 @@ function runRscriptCommand(rscriptCmd, platformLabel = "") {
       stdio: "inherit",
       env: {
         ...process.env,
+        R_HOME: path.join(process.cwd(), "r-nhyris"),
         R_HOME_DIR: path.join(process.cwd(), "r-nhyris"),
         RHOME: path.join(process.cwd(), "r-nhyris")
       }
@@ -62,10 +63,14 @@ export function installRPackages() {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript.exe");
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = "Windows";
-  } else if (process.platform === "linux" || process.platform === "darwin") {
+  } else if (process.platform === "linux") {
+    const rscriptPath = path.join(process.cwd(), rDir, "bin", "exec", "Rscript")
+    rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
+    platformLabel = "Linux";
+  } else if (process.platform === "darwin") {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript");
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
-    platformLabel = process.platform === "darwin" ? "macOS" : "Linux";
+    platformLabel = "macOS";
   } else {
     throw new Error(`Unsupported platform: ${process.platform}`);
   }
