@@ -59,6 +59,7 @@ export function installRPackages() {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript");
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = process.platform === "darwin" ? "macOS" : "Linux";
+    process.env.R_HOME = rHome;
   } else {
     throw new Error(`Unsupported platform: ${process.platform}`);
   }
