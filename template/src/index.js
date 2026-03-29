@@ -320,13 +320,3 @@ app.on("ready", async () => {
     await emitSpashEvent("failed");
   }
 });
-
-app.on("window-all-closed", async () => {
-  appState.setShutdown(true);
-
-  await ProcessManager.terminateRProcesses();
-
-  console.log("Shutting down...");
-  await appState.cleanup();
-  app.quit();
-});
