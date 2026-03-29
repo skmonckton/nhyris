@@ -55,14 +55,12 @@ export function installRPackages() {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript.exe");
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
     platformLabel = "Windows";
-  } else if (process.platform === "linux") {
+  } else if (process.platform === "linux" || process.platform === "darwin") {
     const rscriptPath = path.join(process.cwd(), rDir, "bin", "Rscript");
     rscriptCmd = `"${rscriptPath}" "${pakPkgsPath}"`;
-    platformLabel = "Linux";
+    platformLabel = process.platform === "darwin" ? "macOS" : "Linux";
   } else {
-    // For MacOS and fallback
-    rscriptCmd = `Rscript "${pakPkgsPath}"`;
-    platformLabel = "macOS";
+    throw new Error(`Unsupported platform: ${process.platform}`);
   }
 
   runRscriptCommand(rscriptCmd, platformLabel);
