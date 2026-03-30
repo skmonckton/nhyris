@@ -13,7 +13,7 @@ The minimal framework for transform R shiny application into standalone
 - `template/src/index.js` modified to configure electron autoUpdater.
 
 **Better integration with GitHub**:
-- Modified `commands/update.js` to "patch" an already initialized project if standalone R and/or Node.js modules are missing. This makes it possible to work with GitHub repos while keeping large code libraries `.gitignore`'d. Thus can simply be added to the locally cloned repo or at build time (e.g. using a GitHub Actions workflow).
+- Modified `commands/update.js` to "patch" an already initialized project if standalone R and/or Node.js modules are missing. This makes it possible to work with GitHub repos while keeping large code libraries `.gitignore`'d. Thus they can simply be added to the locally cloned repo or at build time (e.g. using a GitHub Actions workflow) with `nhyris update app`.
 - Added ignore patterns to `template/forge-config.js` to exclude git and RStudio files from build (which required a modification to `utils/zzz.js`).
 
 **Modifications for multi-platform deployment**:
