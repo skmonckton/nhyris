@@ -6,6 +6,29 @@
 
 The minimal framework for transform R shiny application into standalone
 
+## Changes on this fork
+
+**Modifications for Windows deployment**:
+- `init` command from nhyris v1.0.1 initially failed on Windows, requiring modifications to `utils/pak-pkgs.R` and `utils/r.sh`.
+- `template/src/index.js` modified to configure electron autoUpdater.
+
+**Better integration with GitHub**:
+- Modified `commands/update.js` to "patch" an already initialized project if standalone R and/or Node.js modules are missing. This makes it possible to work with GitHub repos while keeping large code libraries `.gitignore`'d. Thus can simply be added to the locally cloned repo or at build time (e.g. using a GitHub Actions workflow).
+- Added ignore patterns to `template/forge-config.js` to exclude git and RStudio files from build (which required a modification to `utils/zzz.js`).
+
+**Modifications for multi-platform deployment**:
+- Explicit platform-dependent maker configuration added to `template/forge-config.js`.
+- Modifications to `commands/install.js`, `utils/r.sh`, and `utils/pak-pkgs.R` to ensure successful R installation on all platforms regardless of build system.
+- Added new release notification to `template/src/index.js` for macOS & Linux (auto update not available without signed code).
+
+**Support for co-existing apps**:
+- nhyris v1.0.1 always launches the Shiny server on port 1124; this has been updated to find a free port, avoiding collision with already-running nhyris-built apps.
+- Previously, closing one app would terminate all running Shiny processes; this has been disabled.
+
+**Miscellaneous non-critical modifications**:
+- Arbitrary changes to default assets, loading page, etc.
+- Fixed some issues with icon handling.
+
 ## Dependencies
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
