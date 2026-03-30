@@ -21,6 +21,7 @@ export const updateCommand = new Command("update")
     // Validate project path: to prevent wrong project name
     validateProjectPath(projectPath, name);
 
+    // Check for missing R or node modules (e.g. if building from a cloned GitHub repo)
     if (!fs.existsSync(path.join(projectPath, "r-nhyris")) || !fs.existsSync(path.join(projectPath, "node_modules"))) {
       console.log(`Re-initializing project: ${name}`);
       if (!fs.existsSync(path.join(projectPath, "r-nhyris"))) {
