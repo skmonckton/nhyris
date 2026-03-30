@@ -4,6 +4,7 @@ import { handleDirectory } from "../utils/directory.js";
 import { copyTemplates } from "../utils/template.js";
 import { installDependencies, installStandaloneR } from "../utils/install.js";
 import { updateGitignore } from "../utils/zzz.js";
+import { fileURLToPath } from "url";
 
 export const initCommand = new Command("init")
   .argument("<name>", "Project name")
@@ -12,7 +13,9 @@ export const initCommand = new Command("init")
   .action(async (name, options) => {
     const root = process.cwd();
     const projectPath = path.join(root, name);
-    const templatePath = path.resolve("template");
+    //const templatePath = path.resolve("template");
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const templatePath = path.join(__dirname, "../template");
 
     await handleDirectory(projectPath, name, options.overwrite);
     updateGitignore(root, name);
