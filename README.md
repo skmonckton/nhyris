@@ -46,6 +46,12 @@ You can install nhyris globally using npm:
 npm i -g nhyris
 ```
 
+Or for this fork:
+
+```sh
+npm install -g github:skmonckton/nhyris
+```
+
 This will add the `nhyris` command to your PATH.
 
 ## How to use
@@ -64,7 +70,7 @@ nhyris init myapp
 nhyris run myapp
 ```
 
-- Update dependencies and project files:
+- Update dependencies and project files (and re-initialize R and Node.js if applicable):
 
 ```sh
 nhyris update myapp
