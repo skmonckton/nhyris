@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import path from "path";
 import fs from "fs";
+import { installDependencies, installStandaloneR } from "../utils/install.js";
 import { installRPackages, installNodePackages } from "../utils/install.js";
 
 function validateProjectPath(projectPath, name) {
@@ -19,6 +20,16 @@ export const updateCommand = new Command("update")
 
     // Validate project path: to prevent wrong project name
     validateProjectPath(projectPath, name);
+
+    if (!fs.existsSync(path.join(projectPath, "r-nhyris")) || !fs.existsSync(path.join(projectPath, "node_modules"))) {
+      console.log(`Re-initializing project: ${name}`);
+      if (!fs.existsSync(path.join(projectPath, "r-nhyris"))) {
+        installStandaloneR(projectPath);
+      }
+      if (!fs.existsSync(path.join(projectPath, "node_modules"))) {
+        installDependencies(projectPath);
+      }
+    }
 
     process.chdir(projectPath);
 
