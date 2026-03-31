@@ -168,26 +168,7 @@ async function tryStartWebserver(
   );
 }
 
-// Squirrel startup handling with better error handling
-// Handle Squirrel startup only on Windows
-// const handleSquirrelStartup = () => {
-//   if (os.platform() !== "win32") {
-//     return false;
-//   }
-//   return ErrorHandler.handleSyncError(
-//     "handleSquirrelStartup",
-//     () => {
-//       if (require("electron-squirrel-startup")) {
-//         app.quit();
-//         ProcessManager.terminateRProcesses();
-//         return true;
-//       }
-//       return false;
-//     },
-//     false
-//   );
-// };
-
+// Squirrel startup handling
 const handleSquirrelStartup = () => {
   if (os.platform() !== "win32") {
     return false;
@@ -219,8 +200,6 @@ const handleSquirrelStartup = () => {
     false
   );
 };
-
-
 
 // Handle Squirrel events only on Windows
 if (handleSquirrelStartup()) {

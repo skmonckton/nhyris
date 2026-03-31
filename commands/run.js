@@ -46,8 +46,9 @@ export const runCommand = new Command("run")
 
     try {
       console.log("Starting Electron app...");
-      execSync("npx electron-forge start", { stdio: "inherit" });
-
+      const sandboxFlag = os.platform() === "linux" ? "-- --no-sandbox" : "";
+      execSync(`npx electron-forge start ${sandboxFlag}`, { stdio: "inherit" });
+      
       // Mac/Linux: exec/R 프로세스 종료
       if (os.platform() !== "win32") {
         terminateExecRProcesses();
