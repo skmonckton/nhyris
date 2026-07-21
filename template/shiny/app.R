@@ -1,5 +1,17 @@
 library(shiny)
 
+# GitHub & Bioconductor dependencies
+invisible(list(
+  github = c(
+    # "r-lib/cli",
+    # "tidyverse/ggplot2"
+  ),
+  bioconductor = c(
+    # "airway",
+    # "AnnotationDbi"
+  )
+))
+
 ui <- fluidPage(
   titlePanel("Simple Shiny App"),
   sidebarLayout(

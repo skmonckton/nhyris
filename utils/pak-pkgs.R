@@ -41,7 +41,7 @@ if (length(r_files) == 0) {
 
 # Find all matches of a regex in a vector of lines
 finder <- function(rgx, lns) {
-    regmatches(lns, gregexpr(rgx, lns, perl = TRUE)) |> unlist()
+    regmatches(lns, gregexpr(rgx, lns, perl = TRUE, ignore.case = TRUE)) |> unlist()
 }
 
 # Read and tidy R file, returning code lines
@@ -72,10 +72,20 @@ parse_packages <- function(file) {
     patterns <- list(
         library = "(?<=(library\\()|(library\\([\"']{1}))[[:alnum:]_.]+",
         require = "(?<=(require\\()|(require\\([\"']{1}))[[:alnum:]_.]+",
-        colon = "[[:alnum:]_.]+(?=:{2,3})"
+        colon = "[[:alnum:]_.]+(?=:{2,3})",
+        github = "(?<=github\\s=\\sc\\(|github=\\sc\\(|github\\s=c\\(|github=c\\()[^\\)]+",
+        bioconductor = "(?<=bioconductor\\s=\\sc\\(|bioconductor=\\sc\\(|bioconductor\\s=c\\(|bioconductor=c\\()[^\\)]+"
     )
-    pkgs <- unlist(lapply(patterns, finder, lns = lns))
-    unique(pkgs[pkgs != "" & pkgs != " "])
+    pkgs <- lapply(patterns, finder, lns = lns)
+    pkgs <- list(cran = c(pkgs$library, pkgs$require, pkgs$colon),
+                 github = gsub('"', '', strsplit(pkgs$github, c(","," "))),
+                 bioconductor = gsub('"', '', strsplit(pkgs$bioconductor, c(","," "))))
+    non_cran <- c(pkgs$bioconductor, gsub("[[:alnum:]_.]+\\/", "", pkgs$github, perl = TRUE))
+    pkgs$cran <- pkgs$cran[!pkgs$cran %in% non_cran]
+    lapply(pkgs, function(p) {
+      pk <- unique(p)
+      pk[!pk %in% c(""," ")]
+    })
 }
 
 # Get all unique package dependencies from R files in a directory
@@ -86,23 +96,27 @@ get_dependent_packages <- function(directory = getwd()) {
         full.names = TRUE,
         recursive = FALSE
     )
-    pkg_names <- unique(unlist(lapply(files, parse_packages)))
-    if (length(pkg_names) == 0) {
+    pkg_names <- do.call(Map, c(function(...) unique(c(...)), lapply(files, parse_packages)))
+    if (length(unlist(pkg_names)) == 0) {
         message("Warning: no packages found in specified directory")
         return(invisible(NULL))
     }
-    unname(pkg_names)
+    pkg_names
 }
 
-cran_pkgs <- unique(c("shiny", get_dependent_packages(directory = "shiny")))
+pkgs <- get_dependent_packages(directory = "shiny")
+cran_pkgs <- unique(c("shiny", unname(unlist(pkgs$cran))))
 
 github_pkgs <- c(
-
+  # "r-lib/cli",
+  # "tidyverse/ggplot2",
+  unique(unname(unlist(pkgs$github)))
 )
 
 bioconductor_pkgs <- c(
-    # "airway",
-    # "AnnotationDbi"
+  # "airway",
+  # "AnnotationDbi",
+  unique(unname(unlist(pkgs$bioconductor)))
 )
 
 cran_pkgs <- paste0("cran::", cran_pkgs)
