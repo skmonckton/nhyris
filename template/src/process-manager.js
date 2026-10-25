@@ -1,5 +1,6 @@
 const { app } = require("electron");
 const { spawn, execSync } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const ErrorHandler = require("./error-handler");
@@ -39,6 +40,19 @@ class ProcessManager {
   static async startShinyProcess(appState) {
     return new Promise((resolve, reject) => {
       let settled = false;
+      // R's output goes to R.log in the log folder (see ErrorHandler.useLogFolder), so failures can be diagnosed
+      const rLog = ErrorHandler.logPath("R");
+      let logFd = "ignore";
+      try {
+        if (rLog) {
+          logFd = fs.openSync(rLog, "a");
+          fs.writeSync(logFd, `--- R started ${new Date().toISOString()}
+`);
+        }
+      } catch (e) {
+        ErrorHandler.logError("ProcessManager.startShinyProcess", e);
+        logFd = "ignore";
+      }
 
       const rShinyProcess = spawn(
         appState.paths.rscript,
@@ -63,9 +77,11 @@ class ProcessManager {
             NHYRIS_LAUNCH_TOKEN: appState.launchToken,
             APP_VER: app.getVersion()
           },
-          stdio: "ignore",
+          stdio: ["ignore", logFd, logFd],
         }
       );
+      // R has its own copy of the log file handle
+      if (typeof logFd === "number") fs.closeSync(logFd);
 
       rShinyProcess.on("error", (err) => {
         if (!settled) {

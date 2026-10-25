@@ -75,17 +75,6 @@ function getSplashScreenOptions(appState) {
   };
 }
 
-// Create a splash screen window
-function createSplashScreen(appState, filename) {
-  const splashScreenOptions = getSplashScreenOptions(appState);
-  let splashScreen = new BrowserWindow(splashScreenOptions);
-  splashScreen.loadURL(`file://${__dirname}/${filename}.html`);
-  splashScreen.on("closed", () => {
-    splashScreen = null;
-  });
-  return splashScreen;
-}
-
 // Show loading splash screen
 function createLoadingSplashScreen(appState) {
   const win = new BrowserWindow({
@@ -106,16 +95,34 @@ function createLoadingSplashScreen(appState) {
   return win;
 }
 
-// Show error splash screen
-function createErrorScreen(appState) {
-  const errorSplashScreen = createSplashScreen(appState, "failed");
-  appState.setErrorSplashScreen(errorSplashScreen);
+// Show the error page (failed.html) in a new window, where the main window was
+function createErrorScreen(appState, bounds) {
+  const win = new BrowserWindow({
+    ...getSplashScreenOptions(appState),
+    ...(bounds || {}),
+    show: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  showErrorPage(appState, win, "later");
+  win.once("ready-to-show", () => win.show());
+  appState.setErrorSplashScreen(win);
+  return win;
+}
+
+// Load the error page into a window ("startup": R didn't start; "later": R stopped while the app was open)
+function showErrorPage(appState, win, when) {
+  win.loadFile(path.join(__dirname, "failed.html"), { query: { when, logs: appState.paths.logPath } });
 }
 
 module.exports = {
   openExternalSafe,
   createWindow,
-  createSplashScreen,
   createLoadingSplashScreen,
   createErrorScreen,
+  showErrorPage,
 };

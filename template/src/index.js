@@ -4,6 +4,7 @@
 
 const { app, session, autoUpdater, dialog, shell, ipcMain, BrowserWindow, clipboard } = require("electron");
 const { spawn } = require('child_process');
+const fs = require("fs");
 const path = require('path');
 const os = require("os");
 const ErrorHandler = require("./error-handler");
@@ -60,8 +61,12 @@ ipcMain.handle("clipboard:writeText", async (_event, text) => {
   return true;
 });
 
-// Auto-updater setup (Windows only, skip in development)
-if (os.platform() === "win32" && app.isPackaged && gitRepo) {
+// Squirrel updates need the installed app (Update.exe beside the app's folder); other builds (e.g. the zip, macOS,
+// Linux) check GitHub's latest release instead
+const squirrelInstalled = os.platform() === "win32" && fs.existsSync(path.resolve(process.execPath, "..", "..", "Update.exe"));
+
+// Auto-updater setup (installed Windows app only, skip in development)
+if (squirrelInstalled && app.isPackaged && gitRepo) {
   const feedURL = `https://update.electronjs.org/${gitOwner}/${gitRepo}/win32/${app.getVersion()}`;
   autoUpdater.setFeedURL({ url: feedURL });
 
@@ -88,17 +93,37 @@ if (os.platform() === "win32" && app.isPackaged && gitRepo) {
   });
 }
 
+// Compares versions such as 1.2.0, 1.2.0-beta and 1.2.0+1; returns > 0 when a is newer than b
+// (build metadata after "+" is ignored, and a pre-release comes before its release)
+function compareVersions(a, b) {
+  const parse = (v) => {
+    const [core, pre = ""] = String(v).replace(/^v/, "").split("+")[0].split(/-(.*)/s);
+    return { nums: core.split(".").map((n) => parseInt(n, 10) || 0), pre };
+  };
+  const x = parse(a);
+  const y = parse(b);
+  for (let i = 0; i < Math.max(x.nums.length, y.nums.length); i++) {
+    const d = (x.nums[i] || 0) - (y.nums[i] || 0);
+    if (d !== 0) return d;
+  }
+  if (x.pre === y.pre) return 0;
+  if (!x.pre) return 1;
+  if (!y.pre) return -1;
+  return x.pre.localeCompare(y.pre, undefined, { numeric: true });
+}
+
 // 0. Check for updates (when autoUpdater is unavailable)
 async function notifyIfUpdates() {
   try {
     const response = await fetch(
       `https://api.github.com/repos/${gitOwner}/${gitRepo}/releases/latest`
     );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const release = await response.json();
-    const latestVersion = release.tag_name.replace("v", "");
+    const latestVersion = release.tag_name.replace(/^v/, "");
     const currentVersion = app.getVersion();
 
-    if (latestVersion !== currentVersion) {
+    if (compareVersions(latestVersion, currentVersion) > 0) {
       const { response: buttonIndex } = await dialog.showMessageBox({
         type: "info",
         title: "Update Available",
@@ -139,7 +164,12 @@ async function waitForServerReady(appState, strategy = "exponential") {
       );
     }
   };
-  return await ServerUtils.waitForServerSmart(url, strategy, statusCallback);
+  // stop waiting if R exits
+  const rExited = () => {
+    const p = appState.rShinyProcess;
+    return !!p && (p.exitCode !== null || p.signalCode !== null);
+  };
+  return await ServerUtils.waitForServerSmart(url, strategy, statusCallback, rExited);
 }
 
 // 3. Calculate retry delay
@@ -251,38 +281,70 @@ if (handleSquirrelStartup()) {
   process.exit(0);
 }
 
+// One copy of the app at a time (two would start two R servers that write the same settings); launching it again
+// brings the open window to the front
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const win = appState && [appState.mainWindow, appState.loadingSplashScreen, appState.errorSplashScreen]
+      .find((w) => w && !w.isDestroyed());
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+}
+
 // R runs as a separate process, which isn't stopped with the app (on Windows, child processes outlive their parent)
 // stop R when the app quits in any manner
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
-  if (appState) ProcessManager.killProcessTree(appState.rShinyProcess);
+  if (appState) {
+    appState.setShutdown(true);
+    ProcessManager.killProcessTree(appState.rShinyProcess);
+  }
 });
 
 // Application bootstrap
 app.on("ready", async () => {
-  
+  if (!gotSingleInstanceLock) return;
+
   appState = new AppState();
+  ErrorHandler.useLogFolder(appState.paths.logPath);
   await appState.init(); // find a free port (in case of other running Shiny apps)
 
   // Clear electron cache (avoids loading app with cached styles from a previous version)
   const cacheClearing = session.defaultSession.clearCache();
 
-  // Set a content security policy
-  session.defaultSession.webRequest.onHeadersReceived((_, callback) => {
-    callback({
-      responseHeaders: `
-        default-src 'none';
-        script-src 'self';
-        img-src 'self' data:;
-        style-src 'self';
-        font-src 'self';
-    `,
-    });
-  });
-
   // only the app's own windows can use the R server: their requests to it carry the per-launch secret
   // (other pages in the user's browser can reach 127.0.0.1 too; start-shiny.R closes sessions without the secret)
   const port = appState.config.serverPort;
+
+  // Content security policy for the app's pages. Shiny and its widgets need inline scripts and eval, so this
+  // doesn't stop injected script from running; it limits what such script can reach: the page can only connect to
+  // the R server. Images may come from any https address (e.g. map tiles); list the app's image servers in img-src
+  // to tighten this.
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    `connect-src 'self' ws://127.0.0.1:${port}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: [`http://127.0.0.1:${port}/*`] },
+    (details, callback) => {
+      callback({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [csp] } });
+    }
+  );
+
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: [`http://127.0.0.1:${port}/*`, `ws://127.0.0.1:${port}/*`] },
     (details, callback) => {
@@ -329,7 +391,7 @@ app.on("ready", async () => {
     WindowManager.createWindow(appState, shinyUrl, bounds);
   const createLoadingSplashScreen = () =>
     WindowManager.createLoadingSplashScreen(appState);
-  const createErrorScreen = () => WindowManager.createErrorScreen(appState);
+  const createErrorScreen = (bounds) => WindowManager.createErrorScreen(appState, bounds);
 
   createLoadingSplashScreen();
 
@@ -351,24 +413,26 @@ app.on("ready", async () => {
     }
   };
 
-  // Callback for errors after startup
+  // Callback for errors after startup (R stopped while the app is open): the error page replaces the main window
   const onErrorLater = async () => {
-    if (!appState.mainWindow) {
+    if (!appState.mainWindow || appState.mainWindow.isDestroyed()) {
       return;
     }
-    createErrorScreen();
-    await appState.errorSplashScreen.show();
+    ErrorHandler.logError("onErrorLater", new Error("R stopped while the app was open"));
+    createErrorScreen(appState.mainWindow.getBounds());
     appState.mainWindow.destroy();
   };
 
-  // Callback for errors during startup
+  // Callback for errors during startup: the error page replaces the loading screen
   const onErrorStartup = async () => {
-    await ServerUtils.waitFor(appState.config.serverStartTimeout); // TODO: hack, only emit if the loading screen is ready
-    await emitSpashEvent("failed");
+    ErrorHandler.logError("onErrorStartup", new Error("R did not start"));
+    if (appState.loadingSplashScreen && !appState.loadingSplashScreen.isDestroyed()) {
+      WindowManager.showErrorPage(appState, appState.loadingSplashScreen, "startup");
+    }
   };
 
   // Check for updates while the splash screen is showing
-  if (os.platform() === "win32" && app.isPackaged && gitRepo) {
+  if (squirrelInstalled && app.isPackaged && gitRepo) {
     autoUpdater.checkForUpdates();
   } else if (app.isPackaged && gitRepo) {
     notifyIfUpdates();
@@ -387,10 +451,14 @@ app.on("ready", async () => {
         appState.loadingSplashScreen.destroy();
         appState.setLoadingSplashScreen(null);
         appState.mainWindow.show();
+        // from now on, R stopping is an error (when the app quits, appState.shutdown is set before R is stopped)
+        appState.rShinyProcess.once("exit", () => {
+          if (!appState.shutdown) onErrorLater();
+        });
       }
     );
   } catch (e) {
-    console.error("Error starting webserver:", e);
-    await emitSpashEvent("failed");
+    ErrorHandler.logError("tryStartWebserver", e);
+    await onErrorStartup();
   }
 });
