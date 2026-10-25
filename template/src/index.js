@@ -51,6 +51,10 @@ ipcMain.handle("shell:openPath", async (_event, targetPath) => {
   if (target !== allowed && !target.startsWith(allowed + path.sep)) {
     return "This location cannot be opened from the app.";
   }
+  // (a missing file would otherwise bring up a Windows error box, and the call would wait until it was closed)
+  if (!fs.existsSync(path.resolve(String(targetPath)))) {
+    return "The file or folder no longer exists.";
+  }
   return shell.openPath(path.resolve(String(targetPath)));
 });
 
@@ -355,6 +359,14 @@ app.on("ready", async () => {
 
   session.defaultSession.setPermissionRequestHandler((_1, _2, callback) => {
     callback(false);
+  });
+
+  // Save dialogs for downloads: a title and the Downloads folder
+  session.defaultSession.on("will-download", (_event, item) => {
+    item.setSaveDialogOptions({
+      title: "Save file",
+      defaultPath: path.join(app.getPath("downloads"), item.getFilename()),
+    });
   });
 
   // Initialize the context menu (for additional options, see: https://github.com/sindresorhus/electron-context-menu)
