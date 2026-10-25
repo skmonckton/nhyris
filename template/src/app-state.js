@@ -10,6 +10,8 @@ class AppState {
     this.mainWindow = null;
     this.loadingSplashScreen = null;
     this.errorSplashScreen = null;
+    // per-launch secret sent with the window's requests to the R server; R closes sessions without it (start-shiny.R)
+    this.launchToken = require("crypto").randomBytes(32).toString("hex");
 
     // Configuration
     let rPath = "r-nhyris";

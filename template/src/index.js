@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Jinhwan Kim
 // Further modifications by Spencer K. Monckton
 
-const { app, session, autoUpdater, dialog, shell } = require("electron");
+const { app, session, autoUpdater, dialog, shell, ipcMain, BrowserWindow, clipboard } = require("electron");
 const { spawn } = require('child_process');
 const path = require('path');
 const os = require("os");
@@ -11,13 +11,57 @@ const ProcessManager = require("./process-manager"); // <-- import ProcessManage
 const ServerUtils = require("./server-utils"); // 추가
 const AppState = require("./app-state");
 const WindowManager = require("./window-manager");
-const [, gitOwner, gitRepo] = new URL(require('../package.json').repository.url).pathname.split('/');
+// GitHub owner and repository for update checks, from package.json's "repository" (a URL, { "url": ... } or
+// "github:owner/repo"); update checks are skipped when there's none
+const pkg = require("../package.json");
+const repoUrl = typeof pkg.repository === "string" ? pkg.repository : (pkg.repository && pkg.repository.url) || "";
+const [gitOwner, gitRepo] = (repoUrl.match(/(?:github\.com[/:]|^github:)([^/]+)\/([^/#?]+?)(?:\.git)?\/?$/) || []).slice(1);
+
+// Windows matches the Start menu shortcut that Squirrel creates to the running app by this ID; without it, the
+// shortcut can show a generic icon and the app can get a separate taskbar entry
+if (os.platform() === "win32") {
+  app.setAppUserModelId(`com.squirrel.${pkg.name}.${path.basename(process.execPath, ".exe")}`);
+}
+const contextMenu = require('electron-context-menu');
 
 // Initialize global state
 let appState;
 
+// Native file picker for the Shiny app (attached to the requesting window, so it opens in the foreground)
+ipcMain.handle("dialog:openFile", async (event, options = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showOpenDialog(win, {
+    title: typeof options.title === "string" ? options.title : undefined,
+    properties: ["openFile"],
+    filters: Array.isArray(options.filters) ? options.filters : [],
+  });
+  return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+});
+
+// Open a file or folder with the default application; opening from the (foreground) electron process also brings
+// the new window to the front. Only paths inside the app's user data folder are allowed.
+ipcMain.handle("shell:openPath", async (_event, targetPath) => {
+  const normalize = (p) => {
+    const resolved = path.resolve(String(p));
+    return os.platform() === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  const target = normalize(targetPath);
+  const allowed = normalize(app.getPath("userData"));
+  if (target !== allowed && !target.startsWith(allowed + path.sep)) {
+    return "This location cannot be opened from the app.";
+  }
+  return shell.openPath(path.resolve(String(targetPath)));
+});
+
+// Copy text to the system clipboard for the Shiny app (works on all platforms without external tools, and isn't
+// affected by the permission handler below, which denies the renderer's own clipboard permission requests)
+ipcMain.handle("clipboard:writeText", async (_event, text) => {
+  clipboard.writeText(String(text));
+  return true;
+});
+
 // Auto-updater setup (Windows only, skip in development)
-if (os.platform() === "win32" && app.isPackaged) {
+if (os.platform() === "win32" && app.isPackaged && gitRepo) {
   const feedURL = `https://update.electronjs.org/${gitOwner}/${gitRepo}/win32/${app.getVersion()}`;
   autoUpdater.setFeedURL({ url: feedURL });
 
@@ -48,7 +92,7 @@ if (os.platform() === "win32" && app.isPackaged) {
 async function notifyIfUpdates() {
   try {
     const response = await fetch(
-      `https://update.electronjs.org/${gitOwner}/${gitRepo}/releases/latest`
+      `https://api.github.com/repos/${gitOwner}/${gitRepo}/releases/latest`
     );
     const release = await response.json();
     const latestVersion = release.tag_name.replace("v", "");
@@ -64,7 +108,7 @@ async function notifyIfUpdates() {
       });
 
       if (buttonIndex === 0) {
-        shell.openExternal(release.html_url);
+        WindowManager.openExternalSafe(release.html_url);
       }
     }
   } catch (err) {
@@ -168,7 +212,7 @@ async function tryStartWebserver(
   );
 }
 
-// Squirrel startup handling
+// Squirrel startup handling (handle only on Windows)
 const handleSquirrelStartup = () => {
   if (os.platform() !== "win32") {
     return false;
@@ -207,6 +251,13 @@ if (handleSquirrelStartup()) {
   process.exit(0);
 }
 
+// R runs as a separate process, which isn't stopped with the app (on Windows, child processes outlive their parent)
+// stop R when the app quits in any manner
+app.on("window-all-closed", () => app.quit());
+app.on("will-quit", () => {
+  if (appState) ProcessManager.killProcessTree(appState.rShinyProcess);
+});
+
 // Application bootstrap
 app.on("ready", async () => {
   
@@ -214,7 +265,7 @@ app.on("ready", async () => {
   await appState.init(); // find a free port (in case of other running Shiny apps)
 
   // Clear electron cache (avoids loading app with cached styles from a previous version)
-  await session.defaultSession.clearCache();
+  const cacheClearing = session.defaultSession.clearCache();
 
   // Set a content security policy
   session.defaultSession.webRequest.onHeadersReceived((_, callback) => {
@@ -229,13 +280,53 @@ app.on("ready", async () => {
     });
   });
 
+  // only the app's own windows can use the R server: their requests to it carry the per-launch secret
+  // (other pages in the user's browser can reach 127.0.0.1 too; start-shiny.R closes sessions without the secret)
+  const port = appState.config.serverPort;
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: [`http://127.0.0.1:${port}/*`, `ws://127.0.0.1:${port}/*`] },
+    (details, callback) => {
+      details.requestHeaders["X-Nhyris-Token"] = appState.launchToken;
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+
   session.defaultSession.setPermissionRequestHandler((_1, _2, callback) => {
     callback(false);
   });
 
+  // Initialize the context menu (for additional options, see: https://github.com/sindresorhus/electron-context-menu)
+  contextMenu.default({
+      showSearchWithGoogle: false,
+      showSelectAll: false,
+      showCopyImage: true,
+      showSaveImageAs: true,
+      showInspectElement: false,
+      showCopyLink: false, 
+      // Custom actions
+      prepend: (defaultActions, parameters) => [
+        // There is a known issue with electron-context-menu's 'Copy Link' action - this resolves it (comment out to disable)
+        {
+          label: 'Copy Link',
+          visible: parameters.linkURL.length > 0,
+          click: () => {
+            require('electron').clipboard.writeText(parameters.linkURL);
+          }
+        },
+        // Option to copy link text
+        {
+          label: 'Copy Link Text',
+          visible: !!(parameters.linkText && parameters.linkText.length > 0),
+          click: () => {
+            require('electron').clipboard.writeText(parameters.linkText);
+          }
+        }
+      ]
+  });
+
   // Use WindowManager for window and splash screen creation
-  const createWindow = (shinyUrl) =>
-    WindowManager.createWindow(appState, shinyUrl);
+  const createWindow = (shinyUrl, bounds) =>
+    WindowManager.createWindow(appState, shinyUrl, bounds);
   const createLoadingSplashScreen = () =>
     WindowManager.createLoadingSplashScreen(appState);
   const createErrorScreen = () => WindowManager.createErrorScreen(appState);
@@ -277,10 +368,13 @@ app.on("ready", async () => {
   };
 
   // Check for updates while the splash screen is showing
-  if (os.platform() === "win32" && app.isPackaged) {
+  if (os.platform() === "win32" && app.isPackaged && gitRepo) {
     autoUpdater.checkForUpdates();
+  } else if (app.isPackaged && gitRepo) {
+    notifyIfUpdates();
   }
 
+  await cacheClearing;
   try {
     await tryStartWebserver(
       0,
@@ -288,7 +382,8 @@ app.on("ready", async () => {
       onErrorStartup,
       onErrorLater,
       (url) => {
-        createWindow(url);
+        const splashBounds = appState.loadingSplashScreen.getBounds();
+        createWindow(url, splashBounds);
         appState.loadingSplashScreen.destroy();
         appState.setLoadingSplashScreen(null);
         appState.mainWindow.show();

@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import { exitWithError } from "../utils/zzz.js";
 import { handleDmgMaker, handleSquirrelMaker, handleDebMaker } from "../utils/maker.js"; // updated import
+import { checkElectronSupport } from "../utils/electron.js";
 
 export const buildCommand = new Command("build")
   .argument("<name>", "Project name")
@@ -42,6 +43,8 @@ export const buildCommand = new Command("build")
         await handleDebMaker(projectPath);
       }
 
+      // warn (without stopping the build) if the app would ship an Electron version that no longer gets security fixes
+      checkElectronSupport(projectPath);
       console.log(`Building Electron app with maker: ${maker}...`);
       execSync("npx electron-forge make", { stdio: "inherit" });
       console.log(`'${name}' build complete.`);

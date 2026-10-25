@@ -3,6 +3,17 @@ import fs from "fs";
 import { installDependencies } from "./install.js";
 import { updatePackageJson, updateForgeConfig } from "./zzz.js";
 
+// GitHub owner and repository from a project's package.json "repository" (a URL, { "url": ... } or "github:owner/repo")
+export function githubRepo(projectPath) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, "package.json"), "utf-8"));
+    const url = typeof pkg.repository === "string" ? pkg.repository : (pkg.repository && pkg.repository.url) || "";
+    return (url.match(/(?:github\.com[/:]|^github:)([^/]+)\/([^/#?]+?)(?:\.git)?\/?$/) || []).slice(1);
+  } catch {
+    return [];
+  }
+}
+
 export async function handleDmgMaker(
   root,
   projectPath,
@@ -25,7 +36,7 @@ export async function handleDmgMaker(
   }
 
   const dependenciesUpdated = updatePackageJson(projectPath, {
-    devDependencies: { "@electron-forge/maker-dmg": "^7.8.1" },
+    devDependencies: { "@electron-forge/maker-dmg": "^8.0.1" },
   });
 
   if (dependenciesUpdated) {
@@ -62,20 +73,22 @@ export async function handleDmgMaker(
 export async function handleSquirrelMaker(projectPath) {
   const dependenciesUpdated = updatePackageJson(projectPath, {
     dependencies: { "electron-squirrel-startup": "^1.0.1" },
-    devDependencies: { "@electron-forge/maker-squirrel": "^7.8.0" },
+    devDependencies: { "@electron-forge/maker-squirrel": "^8.0.1" },
   });
 
   if (dependenciesUpdated) {
     installDependencies(projectPath);
   }
 
-  const [, owner, repo] = new URL(require('../package.json').repository.url).pathname.split('/');
+  // the installer's icon (shown in Windows' installed apps list) is read from the app's GitHub repository, taken
+  // from the app's own package.json; without a GitHub repository, no icon URL is set
+  const [owner, repo] = githubRepo(projectPath);
 
   const squirrelMakerConfig = {
     name: "@electron-forge/maker-squirrel",
     config: {
       setupIcon: "assets/icon.ico",
-      iconUrl: `https://github.com/${owner}/${repo}/raw/main/assets/icon.ico`
+      ...(repo && { iconUrl: `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/assets/icon.ico` }),
     },
   };
 
@@ -84,7 +97,7 @@ export async function handleSquirrelMaker(projectPath) {
 
 export async function handleDebMaker(projectPath) {
   const dependenciesUpdated = updatePackageJson(projectPath, {
-    devDependencies: { "@electron-forge/maker-deb": "^7.8.1" },
+    devDependencies: { "@electron-forge/maker-deb": "^8.0.1" },
   });
 
   if (dependenciesUpdated) {

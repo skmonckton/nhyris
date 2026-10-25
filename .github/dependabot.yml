@@ -9,3 +9,11 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+  # the template that new apps are created from (keeps Electron and Electron Forge current for new apps)
+  - package-ecosystem: "npm"
+    directory: "/template"
+    schedule:
+      interval: "weekly"
+    groups:
+      electron:
+        patterns: ["electron", "@electron-forge/*"]

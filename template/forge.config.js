@@ -2,7 +2,9 @@ module.exports = {
   packagerConfig: {
     icon: "assets/icon",
     ignore: [
+      /^\/dev/,
       /\.git/,
+      /\.github/,
       /\.gitignore$/,
       /\.gitattributes/,
       /\.Rproj$/,

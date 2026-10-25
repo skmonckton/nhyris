@@ -3,31 +3,50 @@ const { shell } = require('electron');
 const ErrorHandler = require("./error-handler");
 const path = require("path");
 
+// Open links in the system's default application; only web and email links are passed on
+// (other URLs - e.g. file:, custom protocol handlers - could launch programs if the page were ever made to open them)
+function openExternalSafe(url) {
+  try {
+    const parsed = new URL(url);
+    if (["https:", "http:", "mailto:"].includes(parsed.protocol)) {
+      shell.openExternal(parsed.href);
+    } else {
+      ErrorHandler.logError("openExternalSafe", new Error(`blocked link with protocol ${parsed.protocol}`));
+    }
+  } catch (e) {
+    ErrorHandler.logError("openExternalSafe", e);
+  }
+}
+
 // Create the main window for the Shiny app
-function createWindow(appState, shinyUrl) {
+function createWindow(appState, shinyUrl, bounds) {
   return ErrorHandler.handleSyncError("createWindow", () => {
     const mainWindow = new BrowserWindow({
-      width: appState.config.mainWindow.width,
-      height: appState.config.mainWindow.height,
+      width:  bounds ? bounds.width  : appState.config.mainWindow.width,
+      height: bounds ? bounds.height : appState.config.mainWindow.height,
+      x:      bounds ? bounds.x      : undefined,
+      y:      bounds ? bounds.y      : undefined,
       show: false,
       autoHideMenuBar: true,
       webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
         nodeIntegration: false,
         contextIsolation: true,
+        spellcheck: false
       },
     });
 
     mainWindow.loadURL(shinyUrl);
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url);
+      openExternalSafe(url);
       return { action: 'deny' };
     });
 
     mainWindow.webContents.on('will-navigate', (event, url) => {
       if (url !== mainWindow.webContents.getURL()) {
         event.preventDefault();
-        shell.openExternal(url);
+        openExternalSafe(url);
         }
     });
 
@@ -94,6 +113,7 @@ function createErrorScreen(appState) {
 }
 
 module.exports = {
+  openExternalSafe,
   createWindow,
   createSplashScreen,
   createLoadingSplashScreen,

@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { installDependencies, installStandaloneR } from "../utils/install.js";
 import { installRPackages, installNodePackages } from "../utils/install.js";
+import { checkElectronSupport, upgradeElectron } from "../utils/electron.js";
 
 function validateProjectPath(projectPath, name) {
   if (!fs.existsSync(projectPath)) {
@@ -14,7 +15,8 @@ function validateProjectPath(projectPath, name) {
 export const updateCommand = new Command("update")
   .argument("<name>", "Project name to update")
   .description("Update R and Node packages for the specified nhyris project")
-  .action((name) => {
+  .option("-e, --electron", "Also upgrade Electron (and Electron Forge) to the latest major version")
+  .action((name, options) => {
     const root = process.cwd();
     const projectPath = path.join(root, name);
 
@@ -38,6 +40,9 @@ export const updateCommand = new Command("update")
       console.log(`Updating project: ${name}`);
       installRPackages(); // Use the function from install.js
       installNodePackages(); // Use the function from install.js
+      // npm install keeps the major version in package.json, so Electron is only upgraded on request
+      if (options.electron) upgradeElectron(projectPath);
+      checkElectronSupport(projectPath);
       console.log(`Project '${name}' updated successfully.`);
     } catch (err) {
       console.error("Update failed:", err.message);
