@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": "src/index.js",
+  "nhyris": {
+    "trustedLinkHosts": []
+  },
   "author": {
     "name": "Full Name",
     "email": "me@email.com"

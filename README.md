@@ -25,6 +25,9 @@ The minimal framework for transform R shiny application into standalone
 - nhyris v1.0.1 always launches the Shiny server on port 1124; this has been updated to find a free port, avoiding collision with already-running nhyris-built apps.
 - Previously, closing one app would terminate all running Shiny processes; this has been disabled.
 
+**Links that open outside the app**:
+- Links open in the browser directly when they go to a site listed in the app's `package.json` (each with its subdomains), e.g. `"nhyris": { "trustedLinkHosts": ["example.org"] }`, or to a web address written in the app's own files (its `shiny` folder), or below one (`https://github.com/me/app` also covers `https://github.com/me/app/releases`, but not the rest of github.com, where anyone can host pages). Other links ask first.
+
 **Miscellaneous non-critical modifications**:
 - Arbitrary changes to default assets, loading page, etc.
 - Fixed some issues with icon handling.

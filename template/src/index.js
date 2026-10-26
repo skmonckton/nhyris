@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Jinhwan Kim
 // Further modifications by Spencer K. Monckton
 
-const { app, session, autoUpdater, dialog, shell, ipcMain, BrowserWindow, clipboard } = require("electron");
+const { app, session, autoUpdater, dialog, shell, ipcMain, BrowserWindow, clipboard, Menu } = require("electron");
 const { spawn } = require('child_process');
 const fs = require("fs");
 const path = require('path');
@@ -28,8 +28,15 @@ const contextMenu = require('electron-context-menu');
 // Initialize global state
 let appState;
 
+// The page bridge (preload.js) only answers the app's own pages: the R server's, and the loading and error pages
+function fromAppPage(event) {
+  const url = (event.senderFrame && event.senderFrame.url) || "";
+  return url.startsWith("file://") || (!!appState && url.startsWith(appState.getServerUrl() + "/"));
+}
+
 // Native file picker for the Shiny app (attached to the requesting window, so it opens in the foreground)
 ipcMain.handle("dialog:openFile", async (event, options = {}) => {
+  if (!fromAppPage(event)) return null;
   const win = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showOpenDialog(win, {
     title: typeof options.title === "string" ? options.title : undefined,
@@ -41,7 +48,8 @@ ipcMain.handle("dialog:openFile", async (event, options = {}) => {
 
 // Open a file or folder with the default application; opening from the (foreground) electron process also brings
 // the new window to the front. Only paths inside the app's user data folder are allowed.
-ipcMain.handle("shell:openPath", async (_event, targetPath) => {
+ipcMain.handle("shell:openPath", async (event, targetPath) => {
+  if (!fromAppPage(event)) return "This location cannot be opened from the app.";
   const normalize = (p) => {
     const resolved = path.resolve(String(p));
     return os.platform() === "win32" ? resolved.toLowerCase() : resolved;
@@ -60,7 +68,8 @@ ipcMain.handle("shell:openPath", async (_event, targetPath) => {
 
 // Copy text to the system clipboard for the Shiny app (works on all platforms without external tools, and isn't
 // affected by the permission handler below, which denies the renderer's own clipboard permission requests)
-ipcMain.handle("clipboard:writeText", async (_event, text) => {
+ipcMain.handle("clipboard:writeText", async (event, text) => {
+  if (!fromAppPage(event)) return false;
   clipboard.writeText(String(text));
   return true;
 });
@@ -159,7 +168,8 @@ async function startShinyProcessWithState(appState) {
 
 // 2. Check if server is ready
 async function waitForServerReady(appState, strategy = "exponential") {
-  const url = appState.getServerUrl();
+  // one of Shiny's own files: asking for the app's page would make R build the whole page for each check
+  const url = appState.getServerUrl() + "/shared/shiny.min.js";
   const statusCallback = (msg) => {
     if (appState.loadingSplashScreen) {
       appState.loadingSplashScreen.webContents.send(
@@ -345,7 +355,9 @@ app.on("ready", async () => {
   session.defaultSession.webRequest.onHeadersReceived(
     { urls: [`http://127.0.0.1:${port}/*`] },
     (details, callback) => {
-      callback({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [csp] } });
+      // (DNS prefetching is off: injected script could otherwise leak data through DNS lookups, which the policy
+      // doesn't cover)
+      callback({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [csp], "X-DNS-Prefetch-Control": ["off"] } });
     }
   );
 
@@ -367,7 +379,17 @@ app.on("ready", async () => {
       title: "Save file",
       defaultPath: path.join(app.getPath("downloads"), item.getFilename()),
     });
+    item.once("done", (_e, state) => {
+      if (state === "interrupted") {
+        dialog.showMessageBox({ type: "error", title: "Download failed", message: `${path.basename(item.getSavePath()) || item.getFilename()} could not be saved.` });
+      }
+    });
   });
+
+  // Reloading the page ends the R session, so the app menu (and Reload shortcut) is excluded; macOS needs its app and Edit menus
+  Menu.setApplicationMenu(process.platform === "darwin"
+    ? Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }])
+    : null);
 
   // Initialize the context menu (for additional options, see: https://github.com/sindresorhus/electron-context-menu)
   contextMenu.default({
@@ -444,7 +466,10 @@ app.on("ready", async () => {
   };
 
   // Check for updates while the splash screen is showing
-  if (squirrelInstalled && app.isPackaged && gitRepo) {
+  // skip on first launch after install, as Squirrel may still be running
+  if (process.argv.includes("--squirrel-firstrun")) {
+    console.log("First launch after installing: update check skipped");
+  } else if (squirrelInstalled && app.isPackaged && gitRepo) {
     autoUpdater.checkForUpdates();
   } else if (app.isPackaged && gitRepo) {
     notifyIfUpdates();
@@ -464,9 +489,14 @@ app.on("ready", async () => {
         appState.setLoadingSplashScreen(null);
         appState.mainWindow.show();
         // from now on, R stopping is an error (when the app quits, appState.shutdown is set before R is stopped)
-        appState.rShinyProcess.once("exit", () => {
-          if (!appState.shutdown) onErrorLater();
-        });
+        const r = appState.rShinyProcess;
+        if (r.exitCode !== null || r.signalCode !== null) {
+          onErrorLater();
+        } else {
+          r.once("exit", () => {
+            if (!appState.shutdown) onErrorLater();
+          });
+        }
       }
     );
   } catch (e) {
