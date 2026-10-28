@@ -46,6 +46,15 @@ R_HOME_DIR=\$(cd \"\$(dirname \"\$0\")/..\" && pwd)
     rm -r doc tests
     rm -r lib/*.dSYM
 
+    # Links that point into R's usual install folder can become broken here and stop packaging
+    # each is replaced by a copy of its target in r-nhyris or removed if that's missing
+    find . -type l | while read -r link; do
+        [ -e "$link" ] && continue
+        rel=$(readlink "$link" | sed -n 's;^.*/R\.framework/\(Versions/[^/]*/\)\{0,1\}Resources/;;p')
+        rm "$link"
+        if [ -n "$rel" ] && [ -e "$rel" ]; then cp -R "$rel" "$link"; fi
+    done
+
 elif [ "$OS_TYPE" = "windows" ]; then
     # Windows installation
     R_WIN_URL="https://cloud.r-project.org/bin/windows/base/old/${R_VERSION}/R-${R_VERSION}-win.exe"
