@@ -17,17 +17,17 @@ fi
 # Define the R version explicitly
 # Keep to CRAN's current release: on older R, CRAN's macOS builds of new package versions can lag,
 # and pak then compiles them from source
-R_VERSION="4.6.0"
+R_VERSION="4.6.1"
 R_DIR="r-nhyris"
 mkdir -p "$R_DIR"
 cd "$R_DIR"
 
 if [ "$OS_TYPE" = "macos" ]; then
-    # macOS installation
-    R_URL="https://cloud.r-project.org/bin/macosx/big-sur-arm64/base/R-${R_VERSION}-arm64.pkg"
+    # macOS installation (R 4.6 and later need macOS 14 Sonoma; earlier versions are in big-sur-arm64)
+    R_URL="https://cloud.r-project.org/bin/macosx/sonoma-arm64/base/R-${R_VERSION}-arm64.pkg"
     echo "Installing R version: $R_VERSION for macOS (arm64)"
     # Download and extract the main Mac Resources directory
-    curl -o latest_r.pkg "$R_URL"
+    curl -fL -o latest_r.pkg "$R_URL"
     xar -xf latest_r.pkg
     rm -r Resources tcltk.pkg texinfo.pkg Distribution latest_r.pkg
     cat R-fw.pkg/Payload | gunzip -dc | cpio -i
@@ -51,10 +51,10 @@ elif [ "$OS_TYPE" = "windows" ]; then
     R_WIN_URL="https://cloud.r-project.org/bin/windows/base/old/${R_VERSION}/R-${R_VERSION}-win.exe"
     echo "Installing R version: $R_VERSION for Windows"
     # Download R installer
-    curl -L -o R-installer.exe "$R_WIN_URL"
+    curl -fL -o R-installer.exe "$R_WIN_URL"
     # Innoextract for Windows (unzip the installer)
     if [ ! -d "innoextract_dir" ]; then
-        curl -L -o innoextract.zip "https://constexpr.org/innoextract/files/innoextract-1.9-windows.zip"
+        curl -fL -o innoextract.zip "https://constexpr.org/innoextract/files/innoextract-1.9-windows.zip"
         unzip innoextract.zip -d innoextract_dir
         rm innoextract.zip
         ./innoextract_dir/innoextract.exe --silent R-installer.exe
@@ -68,7 +68,7 @@ elif [ "$OS_TYPE" = "windows" ]; then
         # Linux (Ubuntu) installation
         echo "Installing R version: $R_VERSION for Linux (prebuilt)"
         R_URL="https://cdn.posit.co/r/ubuntu-2404/R-${R_VERSION}-ubuntu-2404.tar.gz"
-        curl -L -o r-prebuilt.tar.gz "$R_URL"
+        curl -fL -o r-prebuilt.tar.gz "$R_URL"
         mkdir -p r-extracted
         tar -xzf r-prebuilt.tar.gz -C r-extracted
         cp -r r-extracted/${R_VERSION}/lib/R/* .
