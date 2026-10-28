@@ -94,7 +94,8 @@ get_dependent_packages <- function(directory = getwd()) {
         path = directory,
         pattern = "\\.R$",
         full.names = TRUE,
-        recursive = FALSE
+        # include subfolders, e.g. R files sourced from shiny/R
+        recursive = TRUE
     )
     pkg_names <- do.call(Map, c(function(...) unique(c(...)), lapply(files, parse_packages)))
     if (length(unlist(pkg_names)) == 0) {
@@ -105,6 +106,7 @@ get_dependent_packages <- function(directory = getwd()) {
 }
 
 pkgs <- get_dependent_packages(directory = "shiny")
+# names without "cran::", so pak also finds Bioconductor packages
 cran_pkgs <- unique(c("shiny", unname(unlist(pkgs$cran))))
 
 github_pkgs <- c(
@@ -118,8 +120,6 @@ bioconductor_pkgs <- c(
   # "AnnotationDbi",
   unique(unname(unlist(pkgs$bioconductor)))
 )
-
-cran_pkgs <- paste0("cran::", cran_pkgs)
 
 if (length(github_pkgs) > 0) {
     github_pkgs <- paste0("github::", github_pkgs)

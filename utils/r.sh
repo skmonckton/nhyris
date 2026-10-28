@@ -15,8 +15,9 @@ elif [ "$(uname)" = "Linux" ]; then
 fi
 
 # Define the R version explicitly
-# Chosen for compatibility with specific dependencies
-R_VERSION="4.5.0"
+# Keep to CRAN's current release: on older R, CRAN's macOS builds of new package versions can lag,
+# and pak then compiles them from source
+R_VERSION="4.6.0"
 R_DIR="r-nhyris"
 mkdir -p "$R_DIR"
 cd "$R_DIR"
