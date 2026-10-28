@@ -42,7 +42,13 @@ export async function updateForgeConfig(projectPath, makerConfig) {
     );
 
     if (existingMakerIndex > -1) {
-      forgeConfig.makers[existingMakerIndex] = makerConfig;
+      // merge app-specific settings with those from nhyris instead of dropping them
+      const existing = forgeConfig.makers[existingMakerIndex];
+      forgeConfig.makers[existingMakerIndex] = {
+        ...existing,
+        ...makerConfig,
+        config: { ...existing.config, ...makerConfig.config }
+      };
       console.log(`Updated existing ${makerConfig.name} maker configuration.`);
     } else {
       forgeConfig.makers.push(makerConfig);
