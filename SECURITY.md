@@ -11,9 +11,9 @@ We currently support only the latest major version of nhyris. Please always use 
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in nhyris, **do not open a public issue**. Please report it privately by emailing:
+If you discover a security vulnerability in this fork of nhyris, **do not open a public issue**. Please report it privately through GitHub: [Report a vulnerability](https://github.com/skmonckton/nhyris/security/advisories/new).
 
-- **jinhwan@jahnen.io**
+Vulnerabilities in the original nhyris ([jahnen/nhyris](https://github.com/jahnen/nhyris)) should be reported as described there.
 
 When reporting, please include as much relevant information as possible, such as:
 
